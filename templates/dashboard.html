@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Аварийный контроль</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Сайдбар -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>Аварийный контроль</h2>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="#" class="active"><i class="fas fa-home"></i> Главная</a></li>
+                <li><a href="#"><i class="fas fa-bell"></i> Оповещение</a></li>
+                <li><a href="#"><i class="fas fa-history"></i> История аварии</a></li>
+                <li><a href="#"><i class="fas fa-users"></i> Ответственные</a></li>
+                <li><a href="#"><i class="fas fa-chart-line"></i> Аналитика</a></li>
+                <li><a href="#"><i class="fas fa-cog"></i> Настройки</a></li>
+                <li><a href="#"><i class="fas fa-question-circle"></i> Помощь</a></li>
+            </ul>
+        </div>
+
+        <!-- Основной контент -->
+        <div class="main-content">
+            <div class="header">
+                <h1>Панель управления авариями</h1>
+                <div>
+                    <button class="btn btn-outline" onclick="refreshIncidents()">
+                        <i class="fas fa-sync-alt"></i> Обновить
+                    </button>
+                    <button class="btn btn-primary" onclick="syncIncidents()">
+                        <i class="fas fa-cloud-download-alt"></i> Синхронизировать
+                    </button>
+                </div>
+            </div>
+
+            <!-- Фильтры -->
+            <div class="filters">
+                <div class="filter-group">
+                    <label>Статус</label>
+                    <select id="status-filter">
+                        <option>Все аварии</option>
+                        <option>Новые</option>
+                        <option>Подтверждённые</option>
+                        <option>Закрытые</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Категория</label>
+                    <select id="category-filter">
+                        <option>Все категории</option>
+                        <option>Критическая (1)</option>
+                        <option>Высокая (2)</option>
+                        <option>Средняя (3)</option>
+                        <option>Низкая (4)</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Система</label>
+                    <select id="system-filter">
+                        <option>Все системы</option>
+                        <option>ДБО: Пушкинская карта</option>
+                        <option>CRM система</option>
+                        <option>Мобильное приложение</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Дата</label>
+                    <input type="date" value="2025-06-17">
+                </div>
+                <div class="filter-group">
+                    <label>Поиск</label>
+                    <input type="text" placeholder="Поиск по описанию...">
+                </div>
+            </div>
+
+            <!-- Список аварий -->
+            <div class="incidents-container">
+                <div class="incident-list-header">
+                    Текущие аварии
+                </div>
+
+                <div id="incidents-list" class="incident-list">
+                    <!-- Список аварий будет загружен через JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальные окна будут вставлены сюда динамически -->
+    <div id="modals-container"></div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        // Новая функция для синхронизации
+        async function syncIncidents() {
+            const response = await fetch('/api/sync', { method: 'POST' });
+            const result = await response.json();
+
+            if (result.success) {
+                alert('Аварии успешно синхронизированы!');
+                loadIncidents();
+            } else {
+                alert('Ошибка синхронизации: ' + result.message);
+            }
+        }
+    </script>
+</body>
+</html>
