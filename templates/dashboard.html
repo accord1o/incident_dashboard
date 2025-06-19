@@ -9,7 +9,6 @@
 </head>
 <body>
     <div class="container">
-        <!-- Сайдбар -->
         <div class="sidebar">
             <div class="sidebar-header">
                 <h2>Аварийный контроль</h2>
@@ -25,7 +24,6 @@
             </ul>
         </div>
 
-        <!-- Основной контент -->
         <div class="main-content">
             <div class="header">
                 <h1>Панель управления авариями</h1>
@@ -39,76 +37,558 @@
                 </div>
             </div>
 
-            <!-- Фильтры -->
             <div class="filters">
                 <div class="filter-group">
                     <label>Статус</label>
                     <select id="status-filter">
-                        <option>Все аварии</option>
-                        <option>Новые</option>
-                        <option>Подтверждённые</option>
-                        <option>Закрытые</option>
+                        <option value="all">Все аварии</option>
+                        <option value="new">Новые</option>
+                        <option value="confirmed">Подтверждённые</option>
+                        <option value="closed">Закрытые</option>
                     </select>
                 </div>
                 <div class="filter-group">
                     <label>Категория</label>
                     <select id="category-filter">
-                        <option>Все категории</option>
-                        <option>Критическая (1)</option>
-                        <option>Высокая (2)</option>
-                        <option>Средняя (3)</option>
-                        <option>Низкая (4)</option>
+                        <option value="all">Все категории</option>
+                        <option value="1">Критическая (1)</option>
+                        <option value="2">Высокая (2)</option>
+                        <option value="3">Средняя (3)</option>
+                        <option value="4">Низкая (4)</option>
                     </select>
                 </div>
                 <div class="filter-group">
                     <label>Система</label>
                     <select id="system-filter">
-                        <option>Все системы</option>
-                        <option>ДБО: Пушкинская карта</option>
-                        <option>CRM система</option>
-                        <option>Мобильное приложение</option>
+                        <option value="all">Все системы</option>
+                        <option value="ДБО: Пушкинская карта">ДБО: Пушкинская карта</option>
+                        <option value="CRM система">CRM система</option>
+                        <option value="Мобильное приложение">Мобильное приложение</option>
                     </select>
                 </div>
                 <div class="filter-group">
                     <label>Дата</label>
-                    <input type="date" value="2025-06-17">
+                    <input type="date" id="date-filter" value="{{ now.strftime('%Y-%m-%d') }}">
                 </div>
                 <div class="filter-group">
                     <label>Поиск</label>
-                    <input type="text" placeholder="Поиск по описанию...">
+                    <input type="text" id="search-input" placeholder="Поиск по описанию...">
                 </div>
             </div>
 
-            <!-- Список аварий -->
             <div class="incidents-container">
                 <div class="incident-list-header">
-                    Текущие аварии
+                    <h2>Текущие аварии</h2>
+                    <div id="incidents-count">Загрузка...</div>
                 </div>
 
                 <div id="incidents-list" class="incident-list">
-                    <!-- Список аварий будет загружен через JavaScript -->
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i> Загрузка аварий...
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Модальные окна будут вставлены сюда динамически -->
     <div id="modals-container"></div>
 
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <script>
-        // Новая функция для синхронизации
-        async function syncIncidents() {
-            const response = await fetch('/api/sync', { method: 'POST' });
-            const result = await response.json();
+        // Глобальная переменная для хранения всех аварий
+        let allIncidents = [];
+        let filteredIncidents = [];
 
-            if (result.success) {
-                alert('Аварии успешно синхронизированы!');
-                loadIncidents();
-            } else {
-                alert('Ошибка синхронизации: ' + result.message);
+        // Загрузка аварий при открытии страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            loadIncidents();
+
+            // Настройка обработчиков фильтров
+            document.getElementById('status-filter').addEventListener('change', applyFilters);
+            document.getElementById('category-filter').addEventListener('change', applyFilters);
+            document.getElementById('system-filter').addEventListener('change', applyFilters);
+            document.getElementById('date-filter').addEventListener('change', applyFilters);
+            document.getElementById('search-input').addEventListener('input', applyFilters);
+        });
+
+        // Функция загрузки аварий
+        async function loadIncidents() {
+            try {
+                document.getElementById('incidents-list').innerHTML = `
+                    <div class="loading">
+                        <i class="fas fa-spinner fa-spin"></i> Загрузка аварий...
+                    </div>
+                `;
+
+                const response = await fetch('/api/incidents');
+                if (!response.ok) {
+                    throw new Error(`Ошибка HTTP: ${response.status}`);
+                }
+
+                allIncidents = await response.json();
+                applyFilters();
+
+            } catch (error) {
+                console.error('Ошибка загрузки аварий:', error);
+                document.getElementById('incidents-list').innerHTML = `
+                    <div class="error">
+                        <i class="fas fa-exclamation-triangle"></i> Ошибка загрузки данных: ${error.message}
+                    </div>
+                `;
             }
         }
-    </script>
-</body>
-</html>
+
+        // Применение фильтров
+        function applyFilters() {
+            const status = document.getElementById('status-filter').value;
+            const category = document.getElementById('category-filter').value;
+            const system = document.getElementById('system-filter').value;
+            const date = document.getElementById('date-filter').value;
+            const search = document.getElementById('search-input').value.toLowerCase();
+
+            filteredIncidents = allIncidents.filter(incident => {
+                // Фильтр по статусу
+                if (status !== 'all' && incident.status !== status) return false;
+
+                // Фильтр по категории
+                if (category !== 'all' && incident.category.toString() !== category) return false;
+
+                // Фильтр по системе
+                if (system !== 'all' && incident.affected_systems !== system) return false;
+
+                // Фильтр по дате
+                if (date) {
+                    const incidentDate = incident.detection_time.split('T')[0];
+                    if (incidentDate !== date) return false;
+                }
+
+                // Поиск по тексту
+                if (search) {
+                    const searchText = `${incident.problem_summary} ${incident.technical_details}`.toLowerCase();
+                    if (!searchText.includes(search)) return false;
+                }
+
+                return true;
+            });
+
+            renderIncidents();
+        }
+
+        // Отображение аварий
+        function renderIncidents() {
+            const container = document.getElementById('incidents-list');
+            const countElement = document.getElementById('incidents-count');
+
+            if (filteredIncidents.length === 0) {
+                container.innerHTML = `
+                    <div class="no-incidents">
+                        <i class="fas fa-check-circle"></i> Нет аварий, соответствующих фильтрам
+                    </div>
+                `;
+                countElement.textContent = 'Аварий не найдено';
+                return;
+            }
+
+            countElement.textContent = `Найдено аварий: ${filteredIncidents.length}`;
+
+            container.innerHTML = '';
+
+            filteredIncidents.forEach(incident => {
+                const incidentElement = createIncidentElement(incident);
+                container.appendChild(incidentElement);
+            });
+        }
+
+        // Создание элемента аварии
+        function createIncidentElement(incident) {
+            const element = document.createElement('div');
+            element.className = 'incident-item';
+            element.dataset.id = incident.id;
+
+            // Определение цвета статуса
+            let statusClass = 'status-new';
+            let statusText = 'Новая';
+
+            if (incident.status === 'confirmed') {
+                statusClass = 'status-confirmed';
+                statusText = 'Подтверждена';
+            } else if (incident.status === 'closed') {
+                statusClass = 'status-closed';
+                statusText = 'Закрыта';
+            } else if (incident.status === 'rejected') {
+                statusClass = 'status-rejected';
+                statusText = 'Отклонена';
+            }
+
+            // Форматирование даты и времени
+            const detectionTime = new Date(incident.detection_time);
+            const formattedDate = `${detectionTime.getDate().toString().padStart(2, '0')}.${(detectionTime.getMonth() + 1).toString().padStart(2, '0')}.${detectionTime.getFullYear()} ${detectionTime.getHours().toString().padStart(2, '0')}:${detectionTime.getMinutes().toString().padStart(2, '0')}`;
+
+            element.innerHTML = `
+                <div class="incident-header">
+                    <div class="incident-title">
+                        <i class="fas fa-exclamation-circle"></i>
+                        ${incident.problem_summary}
+                    </div>
+                    <div>
+                        <span class="incident-status ${statusClass}">${statusText}</span>
+                        <span class="incident-category">Категория ${incident.category}</span>
+                    </div>
+                </div>
+
+                <div class="incident-meta">
+                    <span><i class="far fa-clock"></i> ${formattedDate}</span>
+                    <span><i class="fas fa-microchip"></i> ${incident.affected_systems}</span>
+                    <span><i class="fas fa-user"></i> ${incident.responsible}</span>
+                    ${incident.attachments ? `<span><i class="fas fa-file-pdf"></i> ${incident.attachments}</span>` : ''}
+                </div>
+
+                <div class="incident-desc">
+                    ${incident.technical_details || ''}
+                </div>
+
+                <div class="incident-actions">
+                    ${incident.status === 'new' ? `
+                        <button class="btn btn-success btn-sm" onclick="openConfirmModal(${incident.id})">
+                            <i class="fas fa-check-circle"></i> Подтвердить
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="openRejectModal(${incident.id})">
+                            <i class="fas fa-times-circle"></i> Отклонить
+                        </button>
+                    ` : ''}
+
+                    <button class="btn btn-outline btn-sm" onclick="openCategoryModal(${incident.id})">
+                        <i class="fas fa-tag"></i> Изменить категорию
+                    </button>
+
+                    ${!incident.war_room_url ? `
+                        <button class="btn btn-outline btn-sm" onclick="createWarRoom(${incident.id})">
+                            <i class="fas fa-video"></i> Создать комнату
+                        </button>
+                    ` : `
+                        <a href="${incident.war_room_url}" target="_blank" class="btn btn-outline btn-sm">
+                            <i class="fas fa-video"></i> Перейти в комнату
+                        </a>
+                    `}
+
+                    <button class="btn btn-outline btn-sm" onclick="notifyBusiness(${incident.id})">
+                        <i class="fas fa-bell"></i> Оповестить бизнес
+                    </button>
+
+                    ${incident.status !== 'closed' && incident.status !== 'rejected' ? `
+                        <button class="btn btn-primary btn-sm" onclick="openCloseModal(${incident.id})">
+                            <i class="fas fa-lock"></i> Закрыть аварию
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+
+            return element;
+        }
+
+        // Функция обновления
+        function refreshIncidents() {
+            loadIncidents();
+        }
+
+        // Функция синхронизации
+        async function syncIncidents() {
+            try {
+                const response = await fetch('/api/sync', { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('Аварии успешно синхронизированы!');
+                    loadIncidents();
+                } else {
+                    alert('Ошибка синхронизации: ' + result.message);
+                }
+            } catch (error) {
+                alert('Ошибка сети: ' + error.message);
+            }
+        }
+    // Реализация модальных окон
+    function openModal(modalId) {
+        document.getElementById(modalId).style.display = 'flex';
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    function openConfirmModal(id) {
+        currentIncidentId = id;
+        document.getElementById('modals-container').innerHTML = `
+            <div class="modal active" id="confirm-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-check-circle"></i> Подтверждение аварии</h3>
+                        <button class="close-modal" onclick="closeModal('confirm-modal')">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Вы подтверждаете, что это реальная авария, требующая немедленного вмешательства?</p>
+                        <div class="form-group">
+                            <label for="confirm-comment">Комментарий (необязательно)</label>
+                            <textarea id="confirm-comment" class="form-control" placeholder="Дополнительная информация..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline" onclick="closeModal('confirm-modal')">Отмена</button>
+                        <button class="btn btn-success" onclick="confirmIncident()">Подтвердить аварию</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async function confirmIncident() {
+        const comment = document.getElementById('confirm-comment').value;
+
+        try {
+            const response = await fetch(`/api/incidents/${currentIncidentId}/confirm`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ comment })
+            });
+
+            if (response.ok) {
+                closeModal('confirm-modal');
+                loadIncidents();
+            } else {
+                const error = await response.json();
+                alert(`Ошибка: ${error.message}`);
+            }
+        } catch (error) {
+            alert(`Ошибка сети: ${error.message}`);
+        }
+    }
+
+    function openRejectModal(id) {
+        currentIncidentId = id;
+        document.getElementById('modals-container').innerHTML = `
+            <div class="modal active" id="reject-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-times-circle"></i> Отклонение аварии</h3>
+                        <button class="close-modal" onclick="closeModal('reject-modal')">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Вы уверены, что хотите отклонить эту аварию как ложное срабатывание?</p>
+                        <div class="form-group">
+                            <label for="reject-reason">Причина отклонения</label>
+                            <select id="reject-reason" class="form-control">
+                                <option value="">Выберите причину</option>
+                                <option value="false-positive">Ложное срабатывание</option>
+                                <option value="test">Тестовая авария</option>
+                                <option value="duplicate">Дубликат существующей аварии</option>
+                                <option value="not-relevant">Не относится к компетенции</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="reject-comment">Комментарий (обязательно)</label>
+                            <textarea id="reject-comment" class="form-control" placeholder="Подробно опишите причину отклонения..." required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline" onclick="closeModal('reject-modal')">Отмена</button>
+                        <button class="btn btn-danger" onclick="rejectIncident()">Отклонить аварию</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async function rejectIncident() {
+        const reason = document.getElementById('reject-reason').value;
+        const comment = document.getElementById('reject-comment').value;
+
+        if (!reason || !comment) {
+            alert('Пожалуйста, укажите причину и комментарий');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/incidents/${currentIncidentId}/reject`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ reason, comment })
+            });
+
+            if (response.ok) {
+                closeModal('reject-modal');
+                loadIncidents();
+            } else {
+                const error = await response.json();
+                alert(`Ошибка: ${error.message}`);
+            }
+        } catch (error) {
+            alert(`Ошибка сети: ${error.message}`);
+        }
+    }
+
+    function openCategoryModal(id) {
+        currentIncidentId = id;
+        document.getElementById('modals-container').innerHTML = `
+            <div class="modal active" id="category-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-tag"></i> Изменение категории аварии</h3>
+                        <button class="close-modal" onclick="closeModal('category-modal')">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="new-category">Новая категория</label>
+                            <select id="new-category" class="form-control">
+                                <option value="1">1 - Критическая (система недоступна)</option>
+                                <option value="2">2 - Высокая (серьёзное нарушение работы)</option>
+                                <option value="3" selected>3 - Средняя (частичное нарушение работы)</option>
+                                <option value="4">4 - Низкая (незначительное влияние)</option>
+                                <option value="5">5 - Информационная (требует мониторинга)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="category-comment">Обоснование изменения</label>
+                            <textarea id="category-comment" class="form-control" placeholder="Почему вы меняете категорию?"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline" onclick="closeModal('category-modal')">Отмена</button>
+                        <button class="btn btn-primary" onclick="changeCategory()">Изменить категорию</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async function changeCategory() {
+        const newCategory = document.getElementById('new-category').value;
+        const comment = document.getElementById('category-comment').value;
+
+        try {
+            const response = await fetch(`/api/incidents/${currentIncidentId}/category`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ category: newCategory, comment })
+            });
+
+            if (response.ok) {
+                closeModal('category-modal');
+                loadIncidents();
+            } else {
+                const error = await response.json();
+                alert(`Ошибка: ${error.message}`);
+            }
+        } catch (error) {
+            alert(`Ошибка сети: ${error.message}`);
+        }
+    }
+
+    async function createWarRoom(id) {
+        try {
+            const response = await fetch(`/api/incidents/${id}/war_room`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                alert(`Аварийная комната создана! Ссылка: ${result.url}`);
+                loadIncidents();
+            } else {
+                const error = await response.json();
+                alert(`Ошибка: ${error.message}`);
+            }
+        } catch (error) {
+            alert(`Ошибка сети: ${error.message}`);
+        }
+    }
+
+    function openCloseModal(id) {
+        currentIncidentId = id;
+        document.getElementById('modals-container').innerHTML = `
+            <div class="modal active" id="close-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-lock"></i> Закрытие аварии</h3>
+                        <button class="close-modal" onclick="closeModal('close-modal')">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="close-reason">Причина закрытия</label>
+                            <select id="close-reason" class="form-control">
+                                <option value="resolved">Проблема устранена</option>
+                                <option value="false-positive">Ложное срабатывание</option>
+                                <option value="duplicate">Дубликат существующей аварии</option>
+                                <option value="external">Внешняя причина (не в нашей компетенции)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="root-cause">Корневая причина</label>
+                            <textarea id="root-cause" class="form-control" placeholder="Что было основной причиной аварии?"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="solution">Принятые меры</label>
+                            <textarea id="solution" class="form-control" placeholder="Что было сделано для устранения аварии?"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="prevention">Меры предотвращения</label>
+                            <textarea id="prevention" class="form-control" placeholder="Что будет сделано для предотвращения подобных аварий в будущем?"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline" onclick="closeModal('close-modal')">Отмена</button>
+                        <button class="btn btn-success" onclick="closeIncident()">Закрыть аварию</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async function closeIncident() {
+        const reason = document.getElementById('close-reason').value;
+        const rootCause = document.getElementById('root-cause').value;
+        const solution = document.getElementById('solution').value;
+        const prevention = document.getElementById('prevention').value;
+
+        try {
+            const response = await fetch(`/api/incidents/${currentIncidentId}/close`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    reason,
+                    root_cause: rootCause,
+                    solution: solution,
+                    prevention
+                })
+            });
+
+            if (response.ok) {
+                closeModal('close-modal');
+                loadIncidents();
+            } else {
+                const error = await response.json();
+                alert(`Ошибка: ${error.message}`);
+            }
+        } catch (error) {
+            alert(`Ошибка сети: ${error.message}`);
+        }
+    }
+
+    async function notifyBusiness(id) {
+        try {
+            const response = await fetch(`/api/incidents/${id}/notify`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                alert('Бизнес успешно оповещён о текущей аварии!');
+            } else {
+                const error = await response.json();
+                alert(`Ошибка: ${error.message}`);
+            }
+        } catch (error) {
+            alert(`Ошибка сети: ${error.message}`);
+        }
+    }
+
+    // Глобальная переменная для хранения текущего ID аварии
+    let currentIncidentId = null;
+</script>

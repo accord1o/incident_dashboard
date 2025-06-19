@@ -2,9 +2,8 @@ from models import Incident, db
 from datetime import datetime
 
 
-# Заглушка - в реальности здесь будет подключение к вашему Service Desk
 def fetch_incidents_from_service_desk():
-    # Возвращаем список аварий, как на скриншоте
+    # Заглушка с данными как на скриншоте
     return [
         {
             "external_id": "INC001",
@@ -43,9 +42,11 @@ def fetch_incidents_from_service_desk():
 
 
 def sync_incidents():
-    incidents = fetch_incidents_from_service_desk()
+    incidents_data = fetch_incidents_from_service_desk()
+    new_count = 0
+    update_count = 0
 
-    for data in incidents:
+    for data in incidents_data:
         incident = Incident.query.filter_by(external_id=data['external_id']).first()
 
         if not incident:
@@ -60,14 +61,16 @@ def sync_incidents():
                 responsible=data['responsible'],
                 technical_details=data['technical_details'],
                 attachments=data['attachments'],
-                status='new'  # По умолчанию новый статус
+                status='new'
             )
             db.session.add(incident)
+            new_count += 1
         else:
             # Обновляем существующую аварию
             incident.problem_summary = data['problem_summary']
             incident.technical_details = data['technical_details']
-            # Другие поля по необходимости
+            # Можно обновить и другие поля, если нужно
+            update_count += 1
 
     db.session.commit()
-    print(f"Синхронизировано {len(incidents)} аварий")
+    print(f"Синхронизировано: добавлено {new_count}, обновлено {update_count} аварий")

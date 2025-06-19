@@ -237,3 +237,10 @@ function createIncidentElement(incident) {
 
     return element;
 }
+
+function createIncidentElement(incident) {
+    const element = document.createElement('div');
+    element.className = 'incident-item';
+    element.textContent = incident.problem_summary;
+    return element;
+}

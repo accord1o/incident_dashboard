@@ -12,7 +12,7 @@ class Incident(db.Model):
     responsible = db.Column(db.String(100), nullable=False)
     technical_details = db.Column(db.Text)
     attachments = db.Column(db.String(255))
-    status = db.Column(db.String(20), default='new')
+    status = db.Column(db.String(20), default='new')  # new, confirmed, rejected, closed
     war_room_url = db.Column(db.String(255))
     reviewed_by = db.Column(db.String(100))
     review_comment = db.Column(db.Text)
@@ -23,8 +23,9 @@ class Incident(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'external_id': self.external_id,
             'problem_summary': self.problem_summary,
-            'detection_time': self.detection_time.strftime("%Y-%m-%d %H:%M"),
+            'detection_time': self.detection_time.isoformat() if self.detection_time else None,
             'affected_systems': self.affected_systems,
             'detection_method': self.detection_method,
             'category': self.category,
@@ -32,5 +33,10 @@ class Incident(db.Model):
             'technical_details': self.technical_details,
             'attachments': self.attachments,
             'status': self.status,
-            'war_room_url': self.war_room_url
+            'war_room_url': self.war_room_url,
+            'reviewed_by': self.reviewed_by,
+            'review_comment': self.review_comment,
+            'root_cause': self.root_cause,
+            'solution': self.solution,
+            'closed_at': self.closed_at.isoformat() if self.closed_at else None
         }
