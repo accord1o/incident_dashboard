@@ -1,6 +1,6 @@
 from models import Incident, db
 from datetime import datetime
-
+import naumen2
 
 def fetch_incidents_from_service_desk():
     # Заглушка с данными как на скриншоте
@@ -42,7 +42,8 @@ def fetch_incidents_from_service_desk():
 
 
 def sync_incidents():
-    incidents_data = fetch_incidents_from_service_desk()
+    #incidents_data = fetch_incidents_from_service_desk()
+    incidents_data = naumen2.get_response_list()
     new_count = 0
     update_count = 0
 
@@ -59,16 +60,16 @@ def sync_incidents():
                 detection_method=data['detection_method'],
                 category=data['category'],
                 responsible=data['responsible'],
-                technical_details=data['technical_details'],
-                attachments=data['attachments'],
+                #technical_details=data['technical_details'],
+                #attachments=data['attachments'],
                 status='new'
             )
             db.session.add(incident)
             new_count += 1
         else:
             # Обновляем существующую аварию
-            incident.problem_summary = data['problem_summary']
-            incident.technical_details = data['technical_details']
+            #incident.problem_summary = data['problem_summary']
+            #incident.technical_details = data['technical_details']
             # Можно обновить и другие поля, если нужно
             update_count += 1
 
